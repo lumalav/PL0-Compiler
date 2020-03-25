@@ -1,0 +1,8 @@
+var a, b, c;
+
+begin
+	read a;
+	read b;
+	c := ((a * b) + 4) / (2);
+	write c;
+end.
