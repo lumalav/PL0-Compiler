@@ -32,19 +32,15 @@ namespace PL0Compiler
         private static CompilerConfiguration _compilerConfiguration;
         private static int _rp;
 
-        public Compiler(CompilerConfiguration configuration)
+        public Compiler(Action<CompilerConfiguration> configuration)
         {
-            if (configuration == null)
-            {
-                throw new ArgumentNullException($"CompilerConfiguration");
-            }
-            
-            if (string.IsNullOrWhiteSpace(configuration.SourceCodeFilePath) || !File.Exists(configuration.SourceCodeFilePath))
+            _compilerConfiguration = new CompilerConfiguration();
+            configuration(_compilerConfiguration);
+
+            if (string.IsNullOrWhiteSpace(_compilerConfiguration.SourceCodeFilePath) || !File.Exists(_compilerConfiguration.SourceCodeFilePath))
             {
                 throw new Exception("Source code could not be found!");
             }
-
-            _compilerConfiguration = configuration;
         }
 
         public void Start()

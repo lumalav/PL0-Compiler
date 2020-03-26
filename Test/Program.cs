@@ -31,17 +31,15 @@ namespace Test
                 return;
             }
 
-            new Compiler(new CompilerConfiguration
+            new Compiler(config =>
             {
-                Execute = true,
-                SourceCodeFilePath = sourceCode,
-                PrintAssemblyCode = args.Any(i => i.Equals("-a", StringComparison.CurrentCultureIgnoreCase)),
-                PrintLexemesOnScreen = args.Any(i => i.Equals("-l", StringComparison.CurrentCultureIgnoreCase)),
-                VmConfiguration = new VMConfiguration
-                {
-                    PrintExecutionTraceOnScreen = args.Any(i => i.Equals("-v", StringComparison.CurrentCultureIgnoreCase))
-                }
-            }).Start();
+                config.Execute = true;
+                config.SourceCodeFilePath = sourceCode;
+                config.PrintAssemblyCode = args.Any(i => i.Equals("-a", StringComparison.CurrentCultureIgnoreCase));
+                config.PrintLexemesOnScreen = args.Any(i => i.Equals("-l", StringComparison.CurrentCultureIgnoreCase));
+                config.VmConfiguration.PrintExecutionTraceOnScreen =
+                    args.Any(i => i.Equals("-v", StringComparison.CurrentCultureIgnoreCase));
+            }).Start(); 
         }
     }
 }
