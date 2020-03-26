@@ -24,12 +24,7 @@ namespace PL0VM
 
         public VM(VMConfiguration configuration)
         {
-            if (configuration == null)
-            {
-                throw new ArgumentNullException($"VmConfiguration");
-            }
-
-            _vmConfiguration = configuration;
+            _vmConfiguration = configuration ?? throw new ArgumentNullException($"VmConfiguration");
         }
 
         public void Start()
@@ -38,7 +33,7 @@ namespace PL0VM
             try
             {
                 outputPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException(),
-                    $"PL_0_ExecutionLog_{DateTime.Now.ToString("MM_dd_yyyy_hh_mm_ss")}.log");
+                    $"PL_0_VM_ExecutionLog_{DateTime.Now.ToString("MM_dd_yyyy_hh_mm_ss")}.log");
 
                 _traceOutWriter = new StreamWriter(outputPath);
                 _rf = new int[8];

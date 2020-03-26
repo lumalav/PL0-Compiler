@@ -1,0 +1,13 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/PL0/v16
+/PL0Compiler/bin/Debug
+/PL0Compiler/obj/Debug
+/PL0Resources/bin/Debug
+/PL0Resources/obj/Debug
+/PL0VM/obj/x64/Release
+/PL0VM/bin/x64/Release
+/Test/bin/x64/Release
+/Test/obj/x64/Release

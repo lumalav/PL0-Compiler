@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using PL0Resources;
@@ -10,6 +11,7 @@ namespace PL0Compiler
     public class Compiler
     {
         private const string _cleanCodeFilePath = "cleanInput.txt";
+        private static string _outputPath;
         private static int _codeCounter;
         private static int _currentLevel;
         private static int _state;
@@ -22,6 +24,8 @@ namespace PL0Compiler
         private static FileStream _fileStream;
         private static StreamWriter _lexemeTableWriter;
         private static StreamWriter _lexemeListWriter;
+        private static StreamWriter _assemblyCodeWriter;
+        private static StreamWriter _traceOutWriter;
         private static SymbolTable _symbolTable;
         private static BufferBlock<TokenValue> _tokens;
         private static TokenValue _currentToken;
@@ -74,15 +78,21 @@ namespace PL0Compiler
                 codeGenerator = CodeParse();
                 TokenizeCode();
                 codeGenerator.Wait();
+                _traceOutWriter.WriteLine($"Assembly code generated successfully\t{DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss:ff")}");
                 executor.Wait();
+                _traceOutWriter.WriteLine($"Code execution ended successfully\t{DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss:ff")}");
             }
             else
             {
                 codeGenerator = CodeParse();
                 TokenizeCode();
                 codeGenerator.Wait();
+                _traceOutWriter.WriteLine($"Assembly code generated successfully\t{DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss:ff")}");
             }
+
+            _traceOutWriter.Close();
         }
+        
         #region Code Scanner/Tokenizer
         private static void CleanFile()
         {
@@ -93,6 +103,10 @@ namespace PL0Compiler
 
             try
             {
+                _outputPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException(),
+                    $"PL_0_Compiler_ExecutionLog_{DateTime.Now.ToString("MM_dd_yyyy_hh_mm_ss")}.log");
+
+                _traceOutWriter = new StreamWriter(_outputPath);
                 fs = File.Open(_cleanCodeFilePath, FileMode.Create, FileAccess.Write);
                 fs2 = File.Open(_compilerConfiguration.SourceCodeFilePath, FileMode.Open, FileAccess.Read);
                 sw = new StreamWriter(fs);
@@ -151,10 +165,13 @@ namespace PL0Compiler
                             break;
                     }
                 }
+
+                _traceOutWriter.WriteLine($"Comments extracted from the source file\t{DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss:ff")}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine(Environment.NewLine + "Something happened while extracting the comments of the source code! " + ex.Message);
+                Console.WriteLine(Environment.NewLine + $"Something happened during pre-compilation process! {ex.Message} Check: {_outputPath}");
+                _traceOutWriter.WriteLine(ex.Message + " " + ex.StackTrace);
                 throw;
             }
             finally
@@ -180,6 +197,8 @@ namespace PL0Compiler
 
             try
             {
+                
+                _assemblyCodeWriter = new StreamWriter("generatedCode.txt");
                 _lexemeTableWriter = new StreamWriter("lexemeTable.txt");
                 _lexemeListWriter = new StreamWriter("lexemeList.txt");
                 _lexemeTableWriter.Write("lexeme\ttoken type" + Environment.NewLine);
@@ -615,6 +634,7 @@ namespace PL0Compiler
                     if (_eof)
                     {
                         _tokens.Complete();
+                        
                         break;
                     }
 
@@ -623,10 +643,13 @@ namespace PL0Compiler
                         _eof = true;
                     }
                 }
+
+                _traceOutWriter.WriteLine($"Source code has been 'tokenized' successfully\t{DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss:ff")}");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine(Environment.NewLine + "Something happened during analysis! " + e.Message);
+                Console.WriteLine(Environment.NewLine + $"Something happened during compilation process! {ex.Message} Check: {_outputPath}");
+                _traceOutWriter.WriteLine(ex.Message + " " + ex.StackTrace);
                 throw;
             }
             finally
@@ -752,7 +775,7 @@ namespace PL0Compiler
 
                 if (!_eof)
                 {
-                    c = _binaryReader.ReadChar(); //fgetc(fCleanInput);
+                    c = _binaryReader.ReadChar();
                 }
 
                 if (!char.IsLetterOrDigit(c))
@@ -790,6 +813,7 @@ namespace PL0Compiler
             }
             Emit(Op.SIO, 0, 0, 3);
             _generatedCode.Complete();
+            _assemblyCodeWriter?.Close();
         }
 
         private static async void BlockParse()
@@ -1388,6 +1412,8 @@ namespace PL0Compiler
             {
                 Console.WriteLine(_generatedCode2[_codeCounter]);
             }
+
+            _assemblyCodeWriter.WriteLine(_generatedCode2[_codeCounter]);
 
             _codeCounter++;
         }
