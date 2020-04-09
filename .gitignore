@@ -11,3 +11,12 @@
 /PL0VM/bin/x64/Release
 /Test/bin/x64/Release
 /Test/obj/x64/Release
+/PL0Compiler/bin
+/PL0Compiler/obj
+/PL0Resources/bin/x64/Release
+/PL0Resources/bin/x86/Release
+/PL0Resources/obj
+/PL0VM/bin/x86
+/PL0VM/obj/x86
+/Test/bin/x86
+/Test/obj/x86

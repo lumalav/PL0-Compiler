@@ -3,8 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using PL0Compiler;
-using PL0Resources;
-
 namespace Test
 {
     class Program
@@ -39,7 +37,7 @@ namespace Test
                 config.PrintLexemesOnScreen = args.Any(i => i.Equals("-l", StringComparison.CurrentCultureIgnoreCase));
                 config.VmConfiguration.PrintExecutionTraceOnScreen =
                     args.Any(i => i.Equals("-v", StringComparison.CurrentCultureIgnoreCase));
-            }).Start(); 
+            }).Start();
         }
     }
 }

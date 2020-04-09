@@ -1,8 +1,19 @@
-var a, b, c;
+var a, b, c, d;
 
 begin
-	read a;
-	read b;
-	c := ((a * b) + 4) / (2);
+	a := 5;
+	b := "Exiting loop!\n";
+	c := "DONE!\n";
+	while a > 0 do
+	begin
+	  a := a - 1;
+	  d := a + "\n";
+	  write d;
+
+	  if a = 0 then
+	  begin
+		write b;
+	  end;
+	end;
 	write c;
 end.

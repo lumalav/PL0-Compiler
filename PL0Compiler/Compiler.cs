@@ -17,6 +17,7 @@ namespace PL0Compiler
         private static int _state;
         private static bool _eof;
         private static string _buffer;
+        private static string _buffer2;
         private static NameRecord _currentProcedure;
         private static Instruction[] _generatedCode2;
         private static BufferBlock<Instruction> _generatedCode;
@@ -56,11 +57,16 @@ namespace PL0Compiler
             });
             _symbolTable = new SymbolTable();
             _generatedCode2 = new Instruction[Constants.MaxCodeLength];
-            _generatedCode = new BufferBlock<Instruction>(new DataflowBlockOptions
+
+            if (_compilerConfiguration.Execute)
             {
-                BoundedCapacity = Constants.MaxCodeLength,
-                EnsureOrdered = true
-            });
+                _generatedCode = new BufferBlock<Instruction>(new DataflowBlockOptions
+                {
+                    BoundedCapacity = Constants.MaxCodeLength,
+                    EnsureOrdered = true
+                });
+            }
+
             _currentToken = new TokenValue();
             _currentProcedure = null;
             _rp = -1;
@@ -234,9 +240,9 @@ namespace PL0Compiler
                                 case 'o'://odd
                                     SaveToBuffer(c, 21);
                                     break;
-                                //case 'p'://procedure
-                                //    SaveToBuffer(c, 24);
-                                //    break;
+                                case 'p'://procedure
+                                    SaveToBuffer(c, 24);
+                                    break;
                                 case 'r'://read
                                     SaveToBuffer(c, 53);
                                     break;
@@ -299,6 +305,9 @@ namespace PL0Compiler
                                 case '>':
                                     SaveToBuffer(c, 60);
                                     break;
+                                case '"':
+                                    _state = 61;
+                                    break;
                                 default:
                                     if (char.IsDigit(c))
                                         SaveToBuffer(c, 57);
@@ -337,9 +346,9 @@ namespace PL0Compiler
                         case 6:
                             switch (c)
                             {
-                                //case 'a':
-                                //    SaveToBuffer(c, 7);
-                                //    break;
+                                case 'a':
+                                    SaveToBuffer(c, 7);
+                                    break;
                                 case 'o':
                                     SaveToBuffer(c, 10);
                                     break;
@@ -390,9 +399,9 @@ namespace PL0Compiler
                                 case 'n':
                                     SaveToBuffer(c, 17);
                                     break;
-                                //case 'l':
-                                //    SaveToBuffer(c, 46);
-                                //    break;
+                                case 'l':
+                                    SaveToBuffer(c, 46);
+                                    break;
                                 default:
                                     if (char.IsLetterOrDigit(c))
                                     {
@@ -625,6 +634,17 @@ namespace PL0Compiler
                                 throw new Exception($"Invalid {_buffer} symbol!" + Environment.NewLine);
                             }
                             break;
+                        case 61:
+                            if (c == '"')
+                            {
+                                WriteToken(_buffer2, Token.STRING_SYM);
+                                _state = 0;
+                            }
+                            else
+                            {
+                                SaveToString(c, 61);
+                            }
+                            break;
                     }
 
                     if (_eof)
@@ -696,6 +716,16 @@ namespace PL0Compiler
 
                 _tokens.Post(new TokenValue(token, buf, num));
             }
+            else if (token == Token.STRING_SYM)
+            {
+                _lexemeListWriter.Write($"{(int)token} {buf} ");
+
+                if (_compilerConfiguration.PrintLexemesOnScreen)
+                {
+                    Console.Write($"{(int)token} {buf} ");
+                }
+                _tokens.Post(new TokenValue(token, buf, buf));
+            }
             else
             {
                 _lexemeListWriter.Write($"{(int)token} ");
@@ -711,6 +741,7 @@ namespace PL0Compiler
             // Put state to 0
             _state = 0;
             _buffer = string.Empty;
+            _buffer2 = string.Empty;
         }
 
         private static void NextOrIdentLoop(char c, char charToCheck, int nextState)
@@ -747,6 +778,19 @@ namespace PL0Compiler
                 WriteToken(_buffer, token);
                 _state = 0;
                 _fileStream.Seek(-1, SeekOrigin.Current);
+            }
+        }
+
+        private static void SaveToString(char c, int st)
+        {
+            _state = st;
+            _buffer2 += c;
+
+            if (_buffer2.Length > Constants.MaxLengthOfString)
+            {
+                // Use a while loop to dump the entire variable name onto the buffer
+                ParseRestOfToken(c);
+                throw new Exception($"{_buffer2} is too long. The longest string should be of {Constants.MaxLengthOfString} characters!" + Environment.NewLine);
             }
         }
 
@@ -808,7 +852,23 @@ namespace PL0Compiler
                 Error(ErrorType.EXPECTED_PERIOD);
             }
             Emit(Op.SIO, 0, 0, 3);
-            _generatedCode.Complete();
+            foreach (var code in _generatedCode2)
+            {
+                if (code == null)
+                {
+                    break;
+                }
+                _assemblyCodeWriter.WriteLine(code);
+                if (_compilerConfiguration.Execute)
+                {
+                    _generatedCode.Post(code);
+                }
+            }
+
+            if (_compilerConfiguration.Execute)
+            {
+                _generatedCode.Complete();
+            }
             _assemblyCodeWriter?.Close();
         }
 
@@ -1172,7 +1232,8 @@ namespace PL0Compiler
                 _rp--;
 
                 await GetToken();
-            } else if (_currentToken.Token == Token.READ_SYM)
+            } 
+            else if (_currentToken.Token == Token.READ_SYM)
             {
                 await GetToken();
 
@@ -1217,7 +1278,7 @@ namespace PL0Compiler
                     }
 
                     await GetToken();
-
+                    
                     var temp = _codeCounter;
 
                     Emit(Op.JPC, _rp, 0, 0);
@@ -1228,7 +1289,7 @@ namespace PL0Compiler
                     {
                         var temp2 = _codeCounter;
 
-                        Emit(Op.JMP, 0, 0, 0);
+                        Emit(Op.JMP, 0, 0, 1);
 
                         _generatedCode2[temp].M = _codeCounter;
 
@@ -1242,7 +1303,8 @@ namespace PL0Compiler
                     {
                         _generatedCode2[temp].M = _codeCounter;
                     }
-                } else if (_currentToken.Token == Token.WHILE_SYM)
+                } 
+                else if (_currentToken.Token == Token.WHILE_SYM)
                 {
                     var temp = _codeCounter;
 
@@ -1313,6 +1375,11 @@ namespace PL0Compiler
 
                 await GetToken();
 
+                if (_currentToken.Token == Token.STRING_SYM)
+                {
+                    Error(ErrorType.OPERATOR_CANNOT_BE_APPLIED_TO_STRING);
+                }
+
                 FactorParse();
                 _rp--;
                 Emit(mulOp == Token.MULT_SYM ? Op.MUL : Op.DIV, _rp, _rp, _rp + 1);
@@ -1350,7 +1417,17 @@ namespace PL0Compiler
             {
                 Emit(Op.LIT, ++_rp, 0, (int)(long)_currentToken.Value);
                 await GetToken();
-            } 
+            }
+            else if (_currentToken.Token == Token.STRING_SYM)
+            {
+                Emit(Op.LIT, ++_rp, 0, _currentToken.Value);
+                await GetToken();
+
+                if (_currentToken.Token != Token.PLUS_SYM && _currentToken.Token != Token.EQL_SYM && _currentToken.Token != Token.NEQ_SYM && IsOperator())
+                {
+                    Error(ErrorType.OPERATOR_CANNOT_BE_APPLIED_TO_STRING2);
+                }
+            }
             else if (_currentToken.Token == Token.LPARENT_SYM)
             {
                 await GetToken();
@@ -1386,7 +1463,7 @@ namespace PL0Compiler
             }
         }
 
-        private static void Emit(Op op, int r, int l, int m)
+        private static void Emit(Op op, int r, int l, object m)
         {
             if (_codeCounter >= Constants.MaxCodeLength)
             {
@@ -1401,15 +1478,6 @@ namespace PL0Compiler
                 R = r,
                 Pos = _codeCounter
             };
-
-            _generatedCode.Post(_generatedCode2[_codeCounter]);
-
-            if (_compilerConfiguration.PrintAssemblyCode)
-            {
-                Console.WriteLine(_generatedCode2[_codeCounter]);
-            }
-
-            _assemblyCodeWriter.WriteLine(_generatedCode2[_codeCounter]);
 
             _codeCounter++;
         }
@@ -1427,6 +1495,16 @@ namespace PL0Compiler
             }
 
             throw new Exception(errorMessage);
+        }
+
+        private static bool IsOperator()
+        {
+            return _currentToken.Token == Token.MINUS_SYM || _currentToken.Token == Token.MULT_SYM ||
+                _currentToken.Token == Token.PLUS_SYM || _currentToken.Token == Token.SLASH_SYM || 
+                _currentToken.Token == Token.ODD_SYM || _currentToken.Token == Token.EQL_SYM ||
+                _currentToken.Token == Token.GEQ_SYM || _currentToken.Token == Token.LEQ_SYM ||
+                _currentToken.Token == Token.LES_SYM || _currentToken.Token == Token.MINUS_SYM || 
+                _currentToken.Token == Token.NEQ_SYM;
         }
 
         #endregion

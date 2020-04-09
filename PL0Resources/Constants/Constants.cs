@@ -81,6 +81,8 @@ namespace PL0Resources
             {ErrorType.EXPECTED_REL_OPERATOR, "Relational operator expected.\n"},
             {ErrorType.EXPRESSION_MUST_NOT_CONTAIN_PROC_ID, "Expression must not contain a procedure identifier.\n"},
             {ErrorType.MISSING_R_PAREN, "Right parenthesis missing.\n"},
+            {ErrorType.OPERATOR_CANNOT_BE_APPLIED_TO_STRING, "Multiplication and Division operators cannot be applied to operands of type 'string'.\n" },
+            {ErrorType.OPERATOR_CANNOT_BE_APPLIED_TO_STRING2, "The only operator allowed to operands of type 'string' is the '+'.\n" },
             {ErrorType.PRECEDING_FACTOR_CANT_BEGIN_WITH_SYM, "The preceding factor cannot begin with the '"},
             {ErrorType.EXPRESSION_CANT_BEGIN_WITH_SYM, "An expression cannot begin with the '"},
             {ErrorType.NUMBER_TOO_LARGE, "The number "},

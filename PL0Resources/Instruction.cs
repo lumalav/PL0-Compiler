@@ -21,7 +21,7 @@
         /// <summary>
         /// M
         /// </summary>
-        public int M { get; set; }
+        public object M { get; set; }
 
         public override string ToString()
         {

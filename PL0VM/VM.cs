@@ -11,14 +11,14 @@ namespace PL0VM
     public class VM
     {
         private static Instruction[] _code;
-        private static int[] _stack;
+        private static object[] _stack;
         private static int[] _ar;
         private static int _currentActivationRecord;
         private static int _sp;
         private static int _bp;
         private static int _pc;
         private static bool _halt;
-        private static int[] _rf;
+        private static object[] _rf;
         private static StreamWriter _traceOutWriter;
         private static VMConfiguration _vmConfiguration;
 
@@ -36,11 +36,11 @@ namespace PL0VM
                     $"PL_0_VM_ExecutionLog_{DateTime.Now.ToString("MM_dd_yyyy_hh_mm_ss")}.log");
 
                 _traceOutWriter = new StreamWriter(outputPath);
-                _rf = new int[8];
+                _rf = new object[8];
                 _sp = 0;
                 _bp = 1;
                 _pc = 0;
-                _stack = new int[Constants.MaxStackHeight];
+                _stack = new object[Constants.MaxStackHeight];
                 _code = new Instruction[Constants.MaxCodeLength];
                 _ar = Enumerable.Repeat(-1, Constants.MaxLexiLevels).ToArray();
                 _halt = false;
@@ -101,11 +101,11 @@ namespace PL0VM
                     $"PL_0_ExecutionLog_{DateTime.Now.ToString("MM_dd_yyyy_hh_mm_ss")}.log");
 
                 _traceOutWriter = new StreamWriter(outputPath);
-                _rf = new int[8];
+                _rf = new object[8];
                 _sp = 0;
                 _bp = 1;
                 _pc = 0;
-                _stack = new int[Constants.MaxStackHeight];
+                _stack = new object[Constants.MaxStackHeight];
                 _code = new Instruction[Constants.MaxCodeLength];
                 _ar = Enumerable.Repeat(-1, Constants.MaxLexiLevels).ToArray();
                 _halt = false;
@@ -132,9 +132,16 @@ namespace PL0VM
 
                 _traceOutWriter.Write(Environment.NewLine);
                 //Read instructions until the halt instruction
+                var index = 0;
                 while (await generatedCode.OutputAvailableAsync() && !_halt)
                 {
                     var instruction = generatedCode.Receive();
+                    _code[index++] = instruction;
+                }
+
+                while (!_halt)
+                {
+                    var instruction = FetchCycle();
                     ExecuteCycle(instruction);
                 }
             }
@@ -155,7 +162,7 @@ namespace PL0VM
             foreach (var line in File.ReadAllLines(_vmConfiguration.AssemblyCodePath))
             {
                 var spl = line.Split(new[] {' ', '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
-                if (spl.Length < 4 || spl.Length > 4)
+                if (spl.Length < 4)
                 {
                     Console.Write("There was an error while reading the file! Wrong format!");
                     _halt = true;
@@ -165,9 +172,9 @@ namespace PL0VM
                 var r1 = int.TryParse(spl[0], out var op);
                 var r2 = int.TryParse(spl[1], out var r);
                 var r3 = int.TryParse(spl[2], out var l);
-                var r4 = int.TryParse(spl[3], out var m);
 
-                if (!r1 || !r2 || !r3 || !r4)
+
+                if (!r1 || !r2 || !r3)
                 {
                     throw new Exception("There was an error while reading the file. These are not numbers!");
                 }
@@ -177,14 +184,32 @@ namespace PL0VM
                     op = 9;
                 }
 
-                _code[index] = new Instruction
+                var r4 = int.TryParse(spl[3], out var m);
+                
+                if (!r4)
                 {
-                    Pos = index++,
-                    Code = (Op) op,
-                    R = r,
-                    L = l,
-                    M = m
-                };
+                    var m2 = string.Join(" ", spl.Skip(3));
+
+                    _code[index] = new Instruction
+                    {
+                        Pos = index++,
+                        Code = (Op)op,
+                        R = r,
+                        L = l,
+                        M = m2
+                    };
+                }
+                else
+                {
+                    _code[index] = new Instruction
+                    {
+                        Pos = index++,
+                        Code = (Op)op,
+                        R = r,
+                        L = l,
+                        M = m
+                    };
+                }
             }
         }
 
@@ -202,14 +227,14 @@ namespace PL0VM
                     break;
                 case Op.RTN:
                     _sp = _bp - 1;
-                    _bp = _stack[_sp + 3];
-                    _pc = _stack[_sp + 4];
+                    _bp = (int)_stack[_sp + 3];
+                    _pc = (int)_stack[_sp + 4];
                     break;
                 case Op.LOD:
-                    _rf[ir.R] = _stack[Base(ir.L, _bp) + ir.M];
+                    _rf[ir.R] = _stack[Base(ir.L, _bp) + (int)ir.M];
                     break;
                 case Op.STO:
-                    _stack[Base(ir.L, _bp) + ir.M] = _rf[ir.R]; 
+                    _stack[Base(ir.L, _bp) + (int)ir.M] = _rf[ir.R]; 
                     break;
                 case Op.CAL:
                     _stack[_sp + 1] = 0;                          // return value (FV)
@@ -217,7 +242,7 @@ namespace PL0VM
                     _stack[_sp + 3] = _bp;                        // dynamic link (DL)
                     _stack[_sp + 4] = _pc;                        // return address (RA)
                     _bp = _sp + 1;
-                    _pc = ir.M;                               //pc = M
+                    _pc = (int)ir.M;                               //pc = M
 
                     //Record activation record separators
                     if (_currentActivationRecord < Constants.MaxLexiLevels)
@@ -226,15 +251,15 @@ namespace PL0VM
                     }
                     break;
                 case Op.INC:
-                    _sp += ir.M; //sp = sp + M
+                    _sp += (int)ir.M; //sp = sp + M
                     break;
                 case Op.JMP:
-                    _pc = ir.M; //pc = M
+                    _pc = (int)ir.M; //pc = M
                     break;
                 case Op.JPC:
-                    if (_rf[ir.R] == 0)
+                    if ((int)_rf[ir.R] == 0)
                     {
-                        _pc = ir.M; //then { pc = M; }
+                        _pc = (int)ir.M; //then { pc = M; }
                     }
                     break;
                 case Op.SIO:
@@ -242,11 +267,13 @@ namespace PL0VM
                     switch (ir.M)
                     {
                         case 1:
-                            Console.Write($"The result is: {_rf[ir.R]}" + Environment.NewLine + "");
+                            var finalValue = (_rf[ir.R] ?? "").ToString().Replace("\\n", "\n").Replace("\\r", "\r");
+                            Console.Write($"{finalValue}");
                             break;
                         case 2:
-                            Console.Write("Input a value: ");
-                            _rf[ir.R] = Convert.ToInt32(Console.ReadLine());
+                            var value = Console.ReadLine();
+                            var isNum = int.TryParse(value, out var possible);
+                            _rf[ir.R] = isNum ? possible : (object)value;
                             break;
                         case 3:
                             _halt = true;
@@ -254,43 +281,43 @@ namespace PL0VM
                     }
                     break;
                 case Op.NEG:
-                    _rf[ir.R] = -_rf[ir.R];
+                    _rf[ir.R] = -(int)_rf[ir.R];
                     break;
                 case Op.ADD:
-                    _rf[ir.R] = _rf[ir.L] + _rf[ir.M];
+                    _rf[ir.R] = (dynamic)_rf[ir.L] + (dynamic)_rf[(int)ir.M];
                     break;
                 case Op.SUB:
-                    _rf[ir.R] = _rf[ir.L] - _rf[ir.M];
+                    _rf[ir.R] = (int)_rf[ir.L] - (int)_rf[(int)ir.M];
                     break;
                 case Op.MUL:
-                    _rf[ir.R] = _rf[ir.L] * _rf[ir.M];
+                    _rf[ir.R] = (int)_rf[ir.L] * (int)_rf[(int)ir.M];
                     break;
                 case Op.DIV:
-                    _rf[ir.R] = _rf[ir.L] / _rf[ir.M];
+                    _rf[ir.R] = (int)_rf[ir.L] / (int)_rf[(int)ir.M];
                     break;
                 case Op.ODD:
-                    _rf[ir.R] = _rf[ir.R] % 2;
+                    _rf[ir.R] = (int)_rf[ir.R] % 2;
                     break;
                 case Op.MOD:
-                    _rf[ir.R] = _rf[ir.L] % _rf[ir.M];
+                    _rf[ir.R] = (int)_rf[ir.L] % (int)_rf[(int)ir.M];
                     break;
                 case Op.EQL:
-                    _rf[ir.R] = _rf[ir.L] == _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (dynamic)_rf[ir.L] == (dynamic)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 case Op.NEQ:
-                    _rf[ir.R] = _rf[ir.L] != _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (dynamic)_rf[ir.L] != (dynamic)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 case Op.LSS:
-                    _rf[ir.R] = _rf[ir.L] < _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (int)_rf[ir.L] < (int)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 case Op.LEQ:
-                    _rf[ir.R] = _rf[ir.L] <= _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (int)_rf[ir.L] <= (int)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 case Op.GTR:
-                    _rf[ir.R] = _rf[ir.L] > _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (int)_rf[ir.L] > (int)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 case Op.GEQ:
-                    _rf[ir.R] = _rf[ir.L] >= _rf[ir.M] ? 1 : 0;
+                    _rf[ir.R] = (int)_rf[ir.L] >= (int)_rf[(int)ir.M] ? 1 : 0;
                     break;
                 default:
                     throw new Exception("");
@@ -372,7 +399,7 @@ namespace PL0VM
         {
             while (level > 0)
             {
-                b = _stack[b + 1];
+                b = (int)_stack[b + 1];
                 level--;
             }
             return b;
